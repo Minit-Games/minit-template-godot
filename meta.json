@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "title": "Godot Bouncy Ball 🏐🌱",
+  "controls": "- **Tap the ball** to bounce it. Every tap scores\n- **Beat the clock** — you have 30 seconds",
+  "logic": "- Each tap is worth the post's **points per tap**, so a modded post can be worth more per bounce\n- The ball keeps its own momentum: tap it again in mid-air to send it higher\n- The run lasts **30 seconds** — score as many bounces as you can",
+  "description": "## What's This? 🏐\n\nA ball on the grass. Tap it, it bounces, you score. You have 30 seconds.\n\nThis is the **Godot starter template** for Minit — a complete, working game kept deliberately tiny so the parts around it are easy to read: config values, the loading handshake, the result report, and audio that behaves inside the app.\n\n## Scoring ⭐\n\n- Every tap is worth the post's **points per tap** (10 by default)\n- Catch the ball in mid-air to keep a rhythm going\n- Your best score is remembered between runs 🏆\n\n## Tips 💡\n\n- The ball is easiest to hit at the top of its arc, where it hangs for a moment\n- Let it settle if you lose it — it always comes back to the same spot 🎯",
+  "resultSorting": "highestScore",
+  "license": "proprietary",
+  "credits": "Music: \"Title Screen\" from 5 Chiptunes (Action) by Juhani Junkala (SubspaceAudio), released under CC0. Font: Titan One by Rodrigo Fuenzalida, under the SIL Open Font License 1.1. Built with the Defold engine (Defold License 1.0).",
+  "sourceUrl": "https://opengameart.org/content/5-chiptunes-action",
+  "config": [
+    {
+      "key": "pointsPerTap",
+      "valueType": "number",
+      "value": 10,
+      "min": 1,
+      "max": 100,
+      "moddable": true,
+      "description": "Points awarded for each tap on the ball."
+    },
+    {
+      "key": "sound",
+      "valueType": "boolean",
+      "value": true,
+      "moddable": true,
+      "description": "Sound effects. The background music has its own toggle."
+    },
+    {
+      "key": "music",
+      "valueType": "boolean",
+      "value": true,
+      "moddable": true,
+      "description": "The looping background track. Sound effects are unaffected."
+    }
+  ]
+}

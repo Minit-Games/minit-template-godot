@@ -1,0 +1,46 @@
+Godot Minit Template — third party notices
+===========================================
+
+All artwork and all sound effects are generated from source at build time
+(tools/gen-art.mjs and tools/gen-audio.mjs). The only third-party media is the
+background music track below.
+
+
+Background music
+----------------
+"Title Screen" from "5 Chiptunes (Action)" by Juhani Junkala (SubspaceAudio).
+https://opengameart.org/content/5-chiptunes-action
+
+Released under CC0 1.0 Universal (public domain dedication). From the author's
+INFO.txt shipped with the pack: "These music tracks have been released under
+CC0 creative commons license. You can do anything you want with these tunes."
+
+CC0 requires no attribution; the credit here and in meta.json is given anyway.
+
+The bundled file is a derivative: downmixed to mono and resampled to 16 kHz
+(tools/gen-music.mjs). The original is 44.1 kHz stereo.
+
+
+Titan One
+---------
+Copyright (c) 2011, Rodrigo Fuenzalida, with Reserved Font Name Titan.
+
+Licensed under the SIL Open Font License, Version 1.1. Full text in this
+repository at assets/fonts/TitanOne-OFL.txt, and at https://scripts.sil.org/OFL
+
+Bundled in compiled form only: Defold rasterises it into a distance-field glyph
+atlas at build time, so no .ttf is redistributed.
+
+
+Godot Engine
+------------
+Copyright (c) 2014-present Godot Engine contributors.
+Copyright (c) 2007-2014 Juan Linietsky, Ariel Manzur.
+
+Licensed under the MIT License. See https://godotengine.org/license
+
+
+Minit Games Godot SDK
+---------------------
+addons/minit/minit.gd, from Minit-Games/minit-godot.
+https://github.com/Minit-Games/minit-godot

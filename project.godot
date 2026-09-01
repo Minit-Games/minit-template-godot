@@ -1,0 +1,47 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly.
+
+config_version=5
+
+[application]
+
+config/name="Godot Minit Template"
+run/main_scene="res://scenes/main.tscn"
+config/features=PackedStringArray("4.7", "GL Compatibility")
+config/icon="res://icon.svg"
+
+[autoload]
+
+; The SDK. The docs' primary route is AssetLib + enabling the plugin; this is
+; the documented standalone route -- register addons/minit/minit.gd as an
+; autoload -- so a fresh clone works with no editor step. Swap to the plugin if
+; you want AssetLib to keep it updated.
+Minit="*res://addons/minit/minit.gd"
+
+[display]
+
+; The guide's design canvas. canvas_items + expand means exactly ONE axis lands
+; on its design value and the other is larger, so these are floors, never a
+; surface to draw to -- scripts/main.gd measures get_viewport_rect().size.
+window/size/viewport_width=960
+window/size/viewport_height=1480
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
+
+[input_devices]
+
+; The platform forbids device hardware, and pointer emulation keeps a single
+; code path for mouse in the editor and touch on a phone.
+pointing/emulate_touch_from_mouse=true
+
+[physics]
+
+3d/physics_engine="Jolt Physics"
+
+[rendering]
+
+; gl_compatibility is the web-friendly renderer.
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/canvas_textures/default_texture_filter=1

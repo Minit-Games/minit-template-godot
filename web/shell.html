@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+	<title>$GODOT_PROJECT_NAME</title>
+	<style>
+/* -----------------------------------------------------------------------
+   Minit host shell.
+
+   No fixed pixel surface: the canvas fills the host's frame and the export
+   uses the Adaptive resize policy, so the canvas backing store follows the
+   real viewport. The project's canvas_items + expand stretch turns that into
+   a constant design width with whatever extra height the slot has -- which is
+   why scripts/main.gd measures get_viewport_rect().size every frame instead
+   of trusting the project's design numbers.
+   ----------------------------------------------------------------------- */
+html, body {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+	background-color: #8fd3f4;
+	/* Without these, a fast drag is a back-navigation swipe on iOS and a
+	   double-tap is a zoom -- both of which eat taps. */
+	touch-action: none;
+	overscroll-behavior: none;
+	-webkit-user-select: none;
+	user-select: none;
+	-webkit-tap-highlight-color: transparent;
+}
+
+#canvas { display: block; width: 100%; height: 100%; border: 0; touch-action: none; }
+#canvas:focus { outline: none; }
+
+#status, #status-splash, #status-progress { position: absolute; left: 0; right: 0; }
+#status, #status-splash { top: 0; bottom: 0; }
+#status {
+	background-color: $GODOT_SPLASH_COLOR;
+	display: flex; flex-direction: column; justify-content: center; align-items: center;
+	visibility: hidden;
+}
+#status-splash { max-height: 100%; max-width: 100%; margin: auto; }
+#status-splash.show-image--false { display: none; }
+#status-splash.fullsize--true { height: 100%; width: 100%; object-fit: contain; }
+#status-splash.use-filter--false { image-rendering: pixelated; }
+#status-progress, #status-notice { display: none; }
+#status-progress { bottom: 10%; width: 50%; margin: 0 auto; }
+#status-notice {
+	background-color: #5b3943; border-radius: 0.5rem; border: 1px solid #9b3943;
+	color: #e0e0e0; font-family: system-ui, sans-serif; line-height: 1.3;
+	margin: 0 2rem; overflow: hidden; padding: 1rem; text-align: center; z-index: 1;
+}
+	</style>
+	$GODOT_HEAD_INCLUDE
+</head>
+<body>
+	<canvas id="canvas">Your browser does not support the canvas tag.</canvas>
+	<noscript>Your browser does not support JavaScript.</noscript>
+
+	<div id="status">
+		<img id="status-splash" class="$GODOT_SPLASH_CLASSES" src="$GODOT_SPLASH" alt="">
+		<progress id="status-progress"></progress>
+		<div id="status-notice"></div>
+	</div>
+
+	<script>
+/* =======================================================================
+   AUDIO IN THE MINIT APP -- the reason this shell exists.
+
+   Everything below must run BEFORE the engine script, so both patches are in
+   place before Godot creates its audio graph. Three independent problems, all
+   of which end in the same symptom: a game that is audible in a browser and
+   completely silent in the app, with nothing in the game able to tell.
+   ======================================================================= */
+
+/* --- 0. Repair the host's volume channel (DROP-8164) -------------------
+   The app tells a game its volume with
+       window.postMessage(payload, window.location.origin)
+   and on iOS the game is served from the minitlocal:// custom scheme, whose
+   origin is OPAQUE -- so location.origin is the string "null", and postMessage
+   does not fail soft with that value, it THROWS. Every volume message the app
+   sends is therefore discarded: the seed baked into the injection at mount time
+   is the only value the page ever sees, and for a drop mounted before it was
+   focused that seed is 0. The game is then healthy and permanently inaudible.
+   Only a foreground transition fixes it, because __minitResumeAudio is a direct
+   call rather than a postMessage -- which is exactly the reported symptom.
+
+   Rather than guess what volume the host wanted, make its own message arrive:
+   retry with '*' when a same-window post is rejected for its target origin. The
+   host's real intent then flows through untouched, including a deliberate mute.
+   Harmless everywhere else -- on a normal origin the first call simply
+   succeeds. */
+(function () {
+	if (typeof window.postMessage !== 'function') { return; }
+	var native = window.postMessage.bind(window);
+	window.postMessage = function (message, targetOrigin, transfer) {
+		try {
+			return native(message, targetOrigin, transfer);
+		} catch (err) {
+			// Only the target-origin rejection is retried; anything else (an
+			// unclonable payload, say) is a real error and must propagate.
+			if (!err || err.name !== 'SyntaxError' || targetOrigin === '*') { throw err; }
+			console.log('[minit-audio] postMessage origin ' + String(targetOrigin) +
+				' rejected; retrying same-window with "*"');
+			return native(message, '*', transfer);
+		}
+	};
+}());/* --- 1. AudioWorklet over the app's custom URL scheme ------------------
+   Godot's web audio driver loads two AudioWorklet modules at boot (the
+   sibling *.audio.worklet.js files). Over http(s) they load normally. Inside
+   the Minit app the game is served from minitlocal://, a custom scheme a
+   worklet module fetch cannot reach: addModule() rejects, the driver never
+   connects its output node, and the game is silent while everything else
+   works. The only symptom is a console error.
+
+   Godot never retries, and cannot be told to skip the worklet either -- it
+   calls audioWorklet.addModule() unconditionally, so hiding the API throws
+   inside audio init rather than falling back to a ScriptProcessorNode. So the
+   retry happens here: fetch the module with the page's own fetch(), which the
+   app's scheme handler does serve, and hand the worklet a blob: URL. */
+(function () {
+	if (typeof AudioWorklet === 'undefined' || !AudioWorklet.prototype.addModule) { return; }
+	var addModule = AudioWorklet.prototype.addModule;
+	AudioWorklet.prototype.addModule = function (url, options) {
+		var worklet = this;
+		return addModule.call(worklet, url, options).catch(function (err) {
+			// A blob: that failed has no second route left -- keep rejecting so
+			// a genuinely broken module does not loop.
+			if (String(url).indexOf('blob:') === 0) { return Promise.reject(err); }
+			return fetch(url).then(function (r) { return r.text(); }).then(function (source) {
+				var blobUrl = URL.createObjectURL(new Blob([source], { type: 'application/javascript' }));
+				return addModule.call(worklet, blobUrl, options);
+			});
+		});
+	};
+}());
+
+/* --- 2 & 3. A suspended context, and the host's mute gain --------------
+   The app routes every game through an AudioContext subclass whose
+   `destination` is a mute gain it owns, seeded at 0 and faded up to
+   window.dropAudioVolume. Two things go wrong:
+
+     * the context can be left suspended, and audio produced while it is
+       suspended is simply dropped; and
+     * if the host's fade-up never lands, the game is entirely healthy --
+       context running, engine mixing, buffers queued -- and inaudible.
+
+   Only a foreground transition re-applies that gain, which is why
+   backgrounding the app and returning "fixes" it. Both are repaired here.
+
+   Godot exposes no handle on its AudioContext, so the constructor is wrapped
+   to keep a registry. In the app this wraps the host's own subclass, so the
+   instances recorded carry _muteGain and fadeVolume. */
+(function () {
+	var contexts = [];
+	window.__minitAudioContexts = contexts;
+
+	/* Did the host ever state a volume AT ALL? The distinction matters, because
+	   a mute and a silence nobody asked for look identical from in here: both
+	   are a mute gain sitting at 0.
+
+	   The app seeds that gain at 0 and states the real volume once, when the
+	   document loads. A fast engine has its AudioContext up by then and takes
+	   the value. A slow one -- a large Unity build is tens of seconds of wasm
+	   -- does not exist yet, and nothing restates it afterwards, so the
+	   context is later born into a 0 that was never actually about this drop.
+	   The next foreground transition does restate it, which is precisely the
+	   "no sound until I background the app and come back" symptom.
+
+	   So: an explicit 0 from the host is a real mute and is left alone. A 0 we
+	   were merely never spoken to about is repaired -- and only after a real
+	   gesture, so the player has demonstrably asked for the game. */
+	var hostSpoke = false, gestured = false;
+	window.addEventListener('message', function (e) {
+		var d = e && e.data;
+		if (d && typeof d === 'object' && /^minit\.(fade|set)DropAudioVolume$/.test(d.type)) {
+			hostSpoke = true;
+			console.log('[minit-audio] host set volume ' + d.value +
+				' at ' + Math.round(performance.now()) + 'ms');
+		}
+	}, true);
+
+	var Native = window.AudioContext || window.webkitAudioContext;
+	if (Native) {
+		var wrap = function () {
+			var ctx = new Native(...arguments);
+			contexts.push(ctx);
+			return ctx;
+		};
+		window.AudioContext = wrap;
+		window.webkitAudioContext = wrap;
+	}
+
+	var last = '';
+	function report(why) {
+		try {
+			var c = contexts[0];
+			if (!c) { return; }
+			var gain = c._muteGain && c._muteGain.gain ? c._muteGain.gain.value : null;
+			var line = c.state + '|' + (gain === null ? 'nogain' : gain.toFixed(2))
+				+ '|' + (window.dropAudioVolume === undefined ? 'novol' : window.dropAudioVolume)
+				+ '|host=' + (hostSpoke ? 'spoke' : 'silent')
+				+ '|gestured=' + (gestured ? 'yes' : 'no');
+			if (line === last) { return; }
+			last = line;
+			console.log('[minit-audio] ' + line + ' (' + why + ') contexts=' + contexts.length);
+		} catch (e) { }
+	}
+
+	/* Re-applies the HOST'S OWN target, through the host's own fadeVolume, and
+	   only when the host says it wants us audible while the gain is still zero
+	   -- and only once that has been true for a moment, since the host
+	   legitimately holds it at 0 for a prime window and a short ramp. When the
+	   app has deliberately muted or ducked the drop it sets that value to 0 or
+	   a ducked level, so this does nothing and a muted drop stays muted. */
+	var stuckSince = 0;
+	function repairGain(why) {
+		// Every registered context, not just the first. One is the normal case,
+		// but an engine that creates its own leaves the game's on a later index
+		// with the repair watching the wrong one -- healthy game, correct
+		// logic, wrong target, and only the app's foreground path recovers it.
+		for (var ci = 0; ci < contexts.length; ci++) { repairOne(contexts[ci], why); }
+	}
+
+	function repairOne(c, why) {
+		try {
+			if (!c || !c._muteGain || !c._muteGain.gain) { stuckSince = 0; return; }
+			var target = window.dropAudioVolume;
+			if (typeof target !== 'number') { stuckSince = 0; return; }
+			if (target <= 0) {
+				// Host said 0: a deliberate mute, honoured. Host said nothing:
+				// nothing to honour, so bring the drop up to full once running.
+				if (hostSpoke || !gestured || c.state !== 'running') { stuckSince = 0; return; }
+				target = 1;
+			}
+			if (c._muteGain.gain.value > 0.001) { stuckSince = 0; return; }
+			var now = Date.now();
+			if (!stuckSince) { stuckSince = now; return; }
+			if (now - stuckSince < 1500) { return; }
+			stuckSince = now;
+			if (typeof c.fadeVolume === 'function') {
+				c.fadeVolume(target, 0.3);
+				console.log('[minit-audio] ' + (hostSpoke ? 're-applied host volume ' :
+					'host never set a volume; restoring ') + target + ' (' + why + ')');
+			}
+		} catch (e) { }
+	}
+
+	function resume(why) {
+		for (var i = 0; i < contexts.length; i++) {
+			try {
+				var c = contexts[i];
+				if (c && c.state !== 'running' && typeof c.resume === 'function') { c.resume(); }
+			} catch (e) { }
+		}
+		repairGain(why);
+		report(why);
+	}
+
+	['touchstart', 'touchend', 'pointerdown', 'mousedown', 'click'].forEach(function (evt) {
+		// Capture phase, so this runs even if something else stops propagation
+		// before the canvas sees the gesture.
+		document.addEventListener(evt, function () { gestured = true; resume(evt); }, { capture: true, passive: true });
+	});
+	document.addEventListener('visibilitychange', function () { if (!document.hidden) { resume('visible'); } });
+	window.addEventListener('focus', function () { resume('focus'); });
+	window.addEventListener('pageshow', function () { resume('pageshow'); });
+
+	// Backing-off watchdog: often early on, rarely later.
+	var tries = 0;
+	(function tick() {
+		tries++;
+		resume('watchdog');
+		setTimeout(tick, tries < 20 ? 500 : (tries < 40 ? 2000 : 10000));
+	})();
+}());
+	</script>
+
+	<script src="$GODOT_URL"></script>
+	<script>
+const GODOT_CONFIG = $GODOT_CONFIG;
+const GODOT_THREADS_ENABLED = $GODOT_THREADS_ENABLED;
+const engine = new Engine(GODOT_CONFIG);
+
+(function () {
+	const statusOverlay = document.getElementById('status');
+	const statusProgress = document.getElementById('status-progress');
+	const statusNotice = document.getElementById('status-notice');
+	let initializing = true;
+	let statusMode = '';
+
+	function setStatusMode(mode) {
+		if (statusMode === mode || !initializing) { return; }
+		if (mode === 'hidden') { statusOverlay.remove(); initializing = false; return; }
+		statusOverlay.style.visibility = 'visible';
+		statusProgress.style.display = mode === 'progress' ? 'block' : 'none';
+		statusNotice.style.display = mode === 'notice' ? 'block' : 'none';
+		statusMode = mode;
+	}
+
+	function setStatusNotice(text) {
+		while (statusNotice.lastChild) { statusNotice.removeChild(statusNotice.lastChild); }
+		text.split('\n').forEach((line) => {
+			statusNotice.appendChild(document.createTextNode(line));
+			statusNotice.appendChild(document.createElement('br'));
+		});
+	}
+
+	function displayFailureNotice(err) {
+		console.error(err);
+		setStatusNotice(err instanceof Error ? err.message : (typeof err === 'string' ? err : 'An unknown error occurred.'));
+		setStatusMode('notice');
+		initializing = false;
+	}
+
+	const missing = Engine.getMissingFeatures({ threads: GODOT_THREADS_ENABLED });
+	if (missing.length !== 0) {
+		displayFailureNotice('Error\nThe following features required to run Godot projects on the Web are missing:\n' + missing.join('\n'));
+	} else {
+		setStatusMode('progress');
+		engine.startGame({
+			'onProgress': function (current, total) {
+				if (current > 0 && total > 0) {
+					statusProgress.value = current;
+					statusProgress.max = total;
+				} else {
+					statusProgress.removeAttribute('value');
+					statusProgress.removeAttribute('max');
+				}
+			},
+		}).then(() => { setStatusMode('hidden'); }, displayFailureNotice);
+	}
+}());
+	</script>
+</body>
+</html>

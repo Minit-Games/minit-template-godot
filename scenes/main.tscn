@@ -1,0 +1,104 @@
+[gd_scene load_steps=15 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="main_script"]
+[ext_resource type="Texture2D" path="res://assets/sky.png" id="tex_sky"]
+[ext_resource type="Texture2D" path="res://assets/ground.png" id="tex_ground"]
+[ext_resource type="Texture2D" path="res://assets/turf.png" id="tex_turf"]
+[ext_resource type="Texture2D" path="res://assets/shadow.png" id="tex_shadow"]
+[ext_resource type="Texture2D" path="res://assets/ball.png" id="tex_ball"]
+[ext_resource type="Texture2D" path="res://assets/puff.png" id="tex_puff"]
+[ext_resource type="Texture2D" path="res://assets/button.png" id="tex_button"]
+[ext_resource type="AudioStream" path="res://assets/sound/tap.wav" id="snd_tap"]
+[ext_resource type="AudioStream" path="res://assets/sound/bounce.wav" id="snd_bounce"]
+[ext_resource type="AudioStream" path="res://assets/sound/finish.wav" id="snd_finish"]
+[ext_resource type="AudioStream" path="res://assets/sound/music.wav" id="snd_music"]
+[ext_resource type="FontFile" path="res://assets/fonts/TitanOne-Regular.ttf" id="font"]
+
+[sub_resource type="StyleBoxTexture" id="btn_normal"]
+texture = ExtResource("tex_button")
+texture_margin_left = 22.0
+texture_margin_top = 22.0
+texture_margin_right = 22.0
+texture_margin_bottom = 22.0
+
+[node name="Main" type="Node2D"]
+script = ExtResource("main_script")
+
+[node name="Sky" type="Sprite2D" parent="."]
+texture = ExtResource("tex_sky")
+
+[node name="Ground" type="Sprite2D" parent="."]
+texture = ExtResource("tex_ground")
+
+[node name="Turf" type="Node2D" parent="."]
+
+[node name="Shadow" type="Sprite2D" parent="."]
+texture = ExtResource("tex_shadow")
+
+[node name="Ball" type="Sprite2D" parent="."]
+texture = ExtResource("tex_ball")
+
+[node name="Puff" type="Sprite2D" parent="."]
+texture = ExtResource("tex_puff")
+visible = false
+
+[node name="TapSfx" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("snd_tap")
+
+[node name="BounceSfx" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("snd_bounce")
+
+[node name="FinishSfx" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("snd_finish")
+
+[node name="Music" type="AudioStreamPlayer" parent="."]
+stream = ExtResource("snd_music")
+
+[node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Dim" type="ColorRect" parent="UI"]
+color = Color(0.04, 0.09, 0.13, 0)
+visible = false
+mouse_filter = 2
+
+[node name="Score" type="Label" parent="UI"]
+text = "0"
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("font")
+
+[node name="Hint" type="Label" parent="UI"]
+text = "TAP THE BALL"
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("font")
+
+[node name="ResultLabel" type="Label" parent="UI"]
+text = "FINAL SCORE"
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("font")
+
+[node name="Result" type="Label" parent="UI"]
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("font")
+
+[node name="Caption" type="Label" parent="UI"]
+text = ""
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("font")
+
+[node name="Timer" type="Label" parent="UI"]
+text = "0:30"
+horizontal_alignment = 1
+vertical_alignment = 1
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("font")

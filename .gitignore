@@ -1,0 +1,9 @@
+# Godot 4+ specific ignores
+.godot/
+/android/
+
+# Build output and tooling caches
+/dist
+/.cache
+
+.DS_Store

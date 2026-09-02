@@ -7,7 +7,7 @@ around it are easy to read. Tap the ball to bounce it; each tap scores. A
 30 second clock ends the run and reports the result.
 
 Start here, replace the game, keep the plumbing. There is a matching
-`defold-minit` template with the same game.
+`minit-template-defold` template with the same game.
 
 ```bash
 tools/build.sh                     # Web export -> dist/web
@@ -182,7 +182,7 @@ launch Chrome **without** `--autoplay-policy=no-user-gesture-required`
 ## Shipping
 
 `tools/package.sh` regenerates every asset, exports release, validates
-`meta.json`, and writes `dist/godot-minit-template.zip` with `index.html`,
+`meta.json`, and writes `dist/minit-template-godot.zip` with `index.html`,
 `meta.json` and the notices at the archive root. Pre-flight refuses a bundle
 that has lost either audio fix, is threaded, is missing the Adaptive canvas
 policy, contains project sources, or is over Minit's 50 MB limit.
@@ -190,5 +190,5 @@ policy, contains project sources, or is over Minit's 50 MB limit.
 Then, from the `minits` tooling repo:
 
 ```bash
-npm run createProject godot-minit/dist/godot-minit-template.zip --dry-run
+npm run createProject minit-template-godot/dist/minit-template-godot.zip --dry-run
 ```

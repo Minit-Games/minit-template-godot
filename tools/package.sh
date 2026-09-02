@@ -9,7 +9,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-ZIP="dist/godot-minit-template.zip"
+ZIP="dist/minit-template-godot.zip"
 OUT="dist/web"
 
 echo "==> regenerating assets"
@@ -27,6 +27,17 @@ rm -f "$ZIP"
 # index.html; the console reads meta.json from there to pre-fill the draft.
 cp meta.json "$OUT/meta.json"
 cp THIRD-PARTY-NOTICES.txt "$OUT/THIRD-PARTY-NOTICES.txt"
+
+echo "==> audio"
+# A build that is silent inside the Minit app looks completely healthy from
+# every other angle -- context running, engine mixing, buffers queued -- so this
+# measures the audio graph rather than trusting any engine flag. It runs the
+# built output behind a test double for the app's audio injection, with autoplay
+# disabled so the context starts suspended exactly as it does in a WKWebView.
+#
+# It is in the packaging path deliberately: a silent build cannot be shipped.
+# This template shipped that exact bug to a device before the check existed.
+node tools/verify-audio.mjs "$OUT"
 
 echo "==> packaging"
 ( cd "$OUT" && zip -qr "../../$ZIP" . -x '.*' -x '**/.*' )

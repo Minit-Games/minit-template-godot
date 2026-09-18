@@ -6,6 +6,8 @@
 //   node tools/play.mjs <dir> [--w 390] [--h 844] [--dpr 3] [--out prefix]
 import { launch } from './cdp.mjs';
 import { spawn } from 'node:child_process';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 const args = Object.fromEntries(process.argv.slice(3).join(' ')
   .split('--').filter(Boolean).map(s => s.trim().split(/\s+/)).map(([k, v]) => [k, v ?? true]));
@@ -13,15 +15,17 @@ const args = Object.fromEntries(process.argv.slice(3).join(' ')
 const dir = process.argv[2] || 'dist/Mole Mayhem';
 const W = +(args.w || 390), H = +(args.h || 844), DPR = +(args.dpr || 3);
 const PORT = 8140 + Math.floor(Math.random() * 400);
-const prefix = args.out || '/tmp/mole';
+// os.tmpdir() rather than /tmp, which does not exist on Windows.
+const prefix = args.out || join(tmpdir(), 'minit-play');
 const ROUNDS = +(args.rounds || 12);
 
 const server = spawn('node', ['tools/serve.mjs', dir, String(PORT)], { stdio: 'ignore' });
 await new Promise(r => setTimeout(r, 600));
 
-const b = await launch({ width: W, height: H, dpr: DPR });
+let b;
 const shots = [];
 try {
+  b = await launch({ width: W, height: H, dpr: DPR });
   await b.page.send('Page.addScriptToEvaluateOnNewDocument', { source: `
     window.__log = [];
     ['log','warn','error'].forEach(k => {
@@ -87,6 +91,6 @@ try {
   console.log('===== shots =====');
   console.log(shots.join('\n'));
 } finally {
-  await b.close();
+  if (b) { await b.close(); }
   server.kill();
 }

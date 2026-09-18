@@ -17,10 +17,21 @@ fi
 
 # The Web export templates are a one-time editor install:
 #   Editor > Manage Export Templates > Download and Install
-if ! find "$HOME/Library/Application Support/Godot/export_templates" \
-     -name 'web_nothreads_release.zip' -print -quit 2>/dev/null | grep -q .; then
-  echo "Web export templates are not installed." >&2
+# Godot stores them somewhere different on each OS, so resolve the path rather
+# than hardcoding the macOS one -- otherwise this reports "not installed" on
+# Windows and Linux even when they are, which blames the creator's install for
+# a path bug here.
+case "$(uname -s)" in
+  Darwin) TEMPLATES="$HOME/Library/Application Support/Godot/export_templates" ;;
+  Linux)  TEMPLATES="${XDG_DATA_HOME:-$HOME/.local/share}/godot/export_templates" ;;
+  *)      TEMPLATES="${APPDATA:-$HOME/AppData/Roaming}/Godot/export_templates" ;;
+esac
+TEMPLATES="${GODOT_TEMPLATES:-$TEMPLATES}"
+
+if ! find "$TEMPLATES" -name 'web_nothreads_release.zip' -print -quit 2>/dev/null | grep -q .; then
+  echo "Web export templates not found under $TEMPLATES" >&2
   echo "Install them: Editor > Manage Export Templates > Download and Install." >&2
+  echo "If they live elsewhere, set GODOT_TEMPLATES=/path/to/export_templates." >&2
   exit 1
 fi
 
